@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 )
@@ -13,16 +14,16 @@ var ConnectionList []net.Conn
 
 func main() {
 
-	//start TCP server listening on specified port
+	// Start TCP server listening on specified port
 	listener, err := net.Listen("tcp", ListAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Start server on: ", listener.Addr().String())
+	fmt.Println("Server listening on: ", listener.Addr().String())
 
 	defer listener.Close()
 
-	//loop for accepting incoming connections
+	// Loop for accepting incoming connections
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
@@ -30,27 +31,43 @@ func main() {
 			continue
 		}
 		fmt.Println("New connection from: ", connection.RemoteAddr())
-		//add connection to list of connections
+		// Add connection to list of connections
 		ConnectionList = append(ConnectionList, connection)
 
-		//launch go routine for handling the connection
+		// Launch go routine for handling the connection
 		go connectionHandler(connection)
 	}
 }
 
 func connectionHandler(connection net.Conn) {
-	//create buffer to read from connection
-	buffer := make([]byte, 1024)
-	numberRead, err := connection.Read(buffer)
-	if err != nil {
-		log.Println(err)
-	}
-	message := buffer[0:numberRead]
 
-	//write to all other connections
-	for _, c := range ConnectionList {
-		if c != connection {
-			c.Write(message)
+	defer connection.Close()
+
+	// Create buffer to read from connection
+	buffer := make([]byte, 1024)
+
+	//Loop to continuously read and write data
+	for {
+		//Waiting for data to be read in the connection
+		numberRead, err := connection.Read(buffer)
+		//Error handling
+		if err != nil {
+			if err == io.EOF {
+				log.Println("Client disconnected: ", connection.RemoteAddr())
+			} else {
+				log.Println("Error in reading: ", err)
+			}
+			return
 		}
+		message := buffer[0:numberRead]
+
+		// Write to all other connections
+		for _, c := range ConnectionList {
+			if c != connection {
+				c.Write(message)
+			}
+		}
+
 	}
+
 }
