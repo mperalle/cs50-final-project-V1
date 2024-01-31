@@ -47,6 +47,16 @@ func connectionHandler(connection net.Conn) {
 
 	defer connection.Close()
 
+	// Ask for name
+	var name string
+	fmt.Fprintln(connection, "Welcome to the chat! What's your name?")
+	fmt.Fscan(connection, &name)
+
+	// Write to all connections
+	for c := range ConnectionList {
+		fmt.Fprintln(c, name, "joined the conversation.")
+	}
+
 	// Create buffer to read from connection
 	buffer := make([]byte, 1024)
 
@@ -66,12 +76,12 @@ func connectionHandler(connection net.Conn) {
 
 			return
 		}
-		message := buffer[0:numberRead]
+		message := string(buffer[0:numberRead])
 
 		// Write to all other connections
 		for c := range ConnectionList {
 			if c != connection {
-				c.Write(message)
+				fmt.Fprint(c, name, ": ", message)
 			}
 		}
 	}
