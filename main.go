@@ -10,7 +10,8 @@ import (
 const ListAddr string = "localhost:3000"
 
 // List of connections to keep track of
-var ConnectionList []net.Conn
+// var ConnectionList []net.Conn
+var ConnectionList map[net.Conn]struct{} = make(map[net.Conn]struct{})
 
 func main() {
 
@@ -32,10 +33,13 @@ func main() {
 		}
 		fmt.Println("New connection from: ", connection.RemoteAddr())
 		// Add connection to list of connections
-		ConnectionList = append(ConnectionList, connection)
+		ConnectionList[connection] = struct{}{}
 
 		// Launch go routine for handling the connection
 		go connectionHandler(connection)
+
+		//test
+		fmt.Println(ConnectionList)
 	}
 }
 
@@ -46,28 +50,30 @@ func connectionHandler(connection net.Conn) {
 	// Create buffer to read from connection
 	buffer := make([]byte, 1024)
 
-	//Loop to continuously read and write data
+	// Loop to continuously read and write data
 	for {
-		//Waiting for data to be read in the connection
+		// Waiting for data to be read in the connection
 		numberRead, err := connection.Read(buffer)
-		//Error handling
+		// Error handling
 		if err != nil {
 			if err == io.EOF {
 				log.Println("Client disconnected: ", connection.RemoteAddr())
 			} else {
 				log.Println("Error in reading: ", err)
 			}
+			// Delete connection from ConnectionList
+			delete(ConnectionList, connection)
+
 			return
 		}
 		message := buffer[0:numberRead]
 
 		// Write to all other connections
-		for _, c := range ConnectionList {
+		for c := range ConnectionList {
 			if c != connection {
 				c.Write(message)
 			}
 		}
-
 	}
 
 }
