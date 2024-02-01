@@ -74,6 +74,11 @@ func connectionHandler(connection net.Conn) {
 			// Delete connection from ConnectionList
 			delete(ConnectionList, connection)
 
+			// Write to all other connections
+			for c := range ConnectionList {
+				fmt.Fprintln(c, name, "left the conversation.")
+			}
+
 			return
 		}
 		message := string(buffer[0:numberRead])
@@ -85,5 +90,4 @@ func connectionHandler(connection net.Conn) {
 			}
 		}
 	}
-
 }
