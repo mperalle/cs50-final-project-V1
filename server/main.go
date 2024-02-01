@@ -81,6 +81,7 @@ func connectionHandler(connection net.Conn) {
 
 			return
 		}
+
 		message := string(buffer[0:numberRead])
 
 		// Write to all other connections
