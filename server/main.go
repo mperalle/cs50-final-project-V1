@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
+	"os"
 )
 
 const ListAddr string = "localhost:3000"
@@ -47,48 +48,30 @@ func connectionHandler(connection net.Conn) {
 
 	defer connection.Close()
 
-	// Ask for name
-	var name string
-	fmt.Fprintln(connection, "Welcome to the chat! What's your name?")
-	fmt.Fscan(connection, &name)
-
-	// Write to all connections
-	for c := range ConnectionList {
-		fmt.Fprintln(c, name, "joined the conversation.")
+	// Fetch name from client
+	scanner := bufio.NewScanner(connection)
+	scanner.Scan()
+	name := scanner.Text()
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "reading standard input:", err)
 	}
 
-	// Create buffer to read from connection
-	buffer := make([]byte, 1024)
-
-	// Loop to continuously read and write data
-	for {
-		// Waiting for data to be read in the connection
-		numberRead, err := connection.Read(buffer)
-		// Error handling
-		if err != nil {
-			if err == io.EOF {
-				log.Println("Client disconnected: ", connection.RemoteAddr())
-			} else {
-				log.Println("Error in reading: ", err)
-			}
-			// Delete connection from ConnectionList
-			delete(ConnectionList, connection)
-
-			// Write to all other connections
-			for c := range ConnectionList {
-				fmt.Fprintln(c, name, "left the conversation.")
-			}
-
-			return
+	// Write to all other connections
+	for c := range ConnectionList {
+		if c != connection {
+			fmt.Fprintln(c, name+" joined the conversation.")
 		}
+	}
 
-		message := string(buffer[0:numberRead])
-
-		// Write to all other connections
+	// Loop to continuously read and write data to the client
+	for scanner.Scan() {
 		for c := range ConnectionList {
 			if c != connection {
-				fmt.Fprint(c, name, ": ", message)
+				fmt.Fprintln(c, name+": "+scanner.Text())
 			}
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "reading standard input:", err)
 	}
 }
