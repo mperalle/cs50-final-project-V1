@@ -8,16 +8,31 @@ import (
 	"os"
 )
 
-const ListAddr string = "localhost:3000"
-
 // List of connections to keep track of
 // var ConnectionList []net.Conn
 var ConnectionList map[net.Conn]struct{} = make(map[net.Conn]struct{})
 
 func main() {
 
+	var IPAddr string
+	var port string
+
+	// Retrieve IP address and port from command-line arguments
+	switch len(os.Args) {
+	case 2:
+		IPAddr = os.Args[1]
+		port = "0"
+		fmt.Println("Random port assigned")
+	case 3:
+		IPAddr = os.Args[1]
+		port = os.Args[2]
+	default:
+		fmt.Println("main.go [IP address] [port]")
+		os.Exit(2)
+	}
+
 	// Start TCP server listening on specified port
-	listener, err := net.Listen("tcp", ListAddr)
+	listener, err := net.Listen("tcp", IPAddr+":"+port)
 	if err != nil {
 		log.Fatal(err)
 	}

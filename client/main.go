@@ -35,8 +35,9 @@ func readConnection(connection net.Conn) {
 }
 
 func readInputAndWriteConnection(connection net.Conn) {
-	//Ask for name
+	// Read input from terminal and send to connection
 	scanner := bufio.NewScanner(os.Stdin)
+	// Ask for name
 	fmt.Println("Welcome to the chat! What's your name? ")
 
 	for scanner.Scan() {
