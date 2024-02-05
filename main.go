@@ -7,11 +7,11 @@ import (
 	"os"
 )
 
+// Global variables for IP address and port number
 var ipAddr string
 var port string
 
 // List of connections to keep track of
-// var ConnectionList []net.Conn
 var connectionList map[net.Conn]struct{} = make(map[net.Conn]struct{})
 
 func main() {
@@ -39,10 +39,10 @@ func main() {
 		os.Exit(2)
 	}
 
+	// Start server or client
 	if listen {
 		startServer()
 	} else {
 		startClient()
 	}
-
 }

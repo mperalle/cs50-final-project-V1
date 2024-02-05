@@ -3,14 +3,17 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
+	"strings"
 )
 
 func startServer() {
 	// Start TCP server listening on specified port
 	listener, err := net.Listen("tcp", ipAddr+":"+port)
+	//listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,9 +63,15 @@ func connectionHandler(connection net.Conn) {
 
 	// Loop to continuously read and write data to the client
 	for scanner.Scan() {
+		message := scanner.Text()
 		for c := range connectionList {
 			if c != connection {
-				fmt.Fprintln(c, name+": "+scanner.Text())
+				if len(message) > len("/send") && message[:len("/send")] == "/send" {
+					fmt.Fprintln(c, message)
+					forwardFile(c, connection)
+				}
+
+				fmt.Fprintln(c, name+": "+message)
 			}
 		}
 	}
@@ -75,7 +84,29 @@ func connectionHandler(connection net.Conn) {
 				fmt.Fprintln(c, name+" left the conversation.")
 			}
 		}
-		// Log client disconnection
-		log.Println("Client disconnected: " + connection.RemoteAddr().String())
+		// Log when client disconnects
+		log.Println("Client disconnected:", connection.RemoteAddr())
 	}
+}
+
+func forwardFile(writeConnection net.Conn, readConnection net.Conn) {
+	buffer := make([]byte, 1024)
+	var fileData []byte
+	for {
+		n, err := readConnection.Read(buffer)
+		if err == io.EOF {
+			fmt.Println("connection closed")
+			break
+		} else if strings.Contains(string(buffer[:n]), "END") {
+			fileData = append(fileData, buffer[:n-3]...)
+			fmt.Println("File reading done!")
+			break
+		}
+		fileData = append(fileData, buffer...)
+	}
+
+	writeConnection.Write(fileData)
+	writeConnection.Write([]byte("END"))
+	fmt.Println("File sent to:", writeConnection.RemoteAddr())
+
 }
