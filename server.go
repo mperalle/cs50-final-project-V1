@@ -2,18 +2,18 @@ package main
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
-	"strings"
 )
 
 func startServer() {
 	// Start TCP server listening on specified port
-	listener, err := net.Listen("tcp", ipAddr+":"+port)
-	//listener, err := net.Listen("tcp", ":"+port)
+	//listener, err := net.Listen("tcp", ipAddr+":"+port)
+	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,8 +35,6 @@ func startServer() {
 		// Launch go routine for handling the connection
 		go connectionHandler(connection)
 
-		//test
-		fmt.Println(connectionList)
 	}
 }
 
@@ -64,16 +62,26 @@ func connectionHandler(connection net.Conn) {
 	// Loop to continuously read and write data to the client
 	for scanner.Scan() {
 		message := scanner.Text()
-		for c := range connectionList {
-			if c != connection {
-				if len(message) > len("/send") && message[:len("/send")] == "/send" {
+		if len(message) > len("/send") && message[:len("/send")] == "/send" {
+			fmt.Println("/send command received...and transfering to all connections...")
+			for c := range connectionList {
+				if c != connection {
+					fmt.Println("/send command transfering to:", c.RemoteAddr())
 					fmt.Fprintln(c, message)
-					forwardFile(c, connection)
 				}
-
-				fmt.Fprintln(c, name+": "+message)
 			}
+			forwardFile(connection)
+
+		} else {
+			for c := range connectionList {
+				if c != connection {
+
+					fmt.Fprintln(c, name+": "+message)
+				}
+			}
+
 		}
+
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Println("reading standard input:", err)
@@ -89,24 +97,49 @@ func connectionHandler(connection net.Conn) {
 	}
 }
 
-func forwardFile(writeConnection net.Conn, readConnection net.Conn) {
+func forwardFile(connection net.Conn) {
 	buffer := make([]byte, 1024)
 	var fileData []byte
-	for {
-		n, err := readConnection.Read(buffer)
-		if err == io.EOF {
-			fmt.Println("connection closed")
-			break
-		} else if strings.Contains(string(buffer[:n]), "END") {
-			fileData = append(fileData, buffer[:n-3]...)
-			fmt.Println("File reading done!")
-			break
-		}
-		fileData = append(fileData, buffer...)
+	fileSizeByte := make([]byte, 8)
+
+	_, err := io.ReadFull(connection, fileSizeByte)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	writeConnection.Write(fileData)
-	writeConnection.Write([]byte("END"))
-	fmt.Println("File sent to:", writeConnection.RemoteAddr())
+	fileSizeUint64 := binary.LittleEndian.Uint64(fileSizeByte)
 
+	fmt.Println("Got file size! :", fileSizeUint64)
+	reader := io.LimitReader(connection, int64(fileSizeUint64))
+
+	for {
+		n, err := reader.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				log.Fatal(err)
+			} else {
+				fmt.Println("File reading complete!")
+				break
+			}
+		}
+		dataRead := buffer[:n]
+		fileData = append(fileData, dataRead...)
+	}
+
+	for c := range connectionList {
+		if c != connection {
+			fmt.Println("Write fileSizeByte...")
+			_, err = c.Write(fileSizeByte)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println("Write fileData...")
+			_, err = c.Write(fileData)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println("File sent to:", c.RemoteAddr())
+		}
+	}
 }
