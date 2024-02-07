@@ -2,26 +2,24 @@ package main
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"os"
 )
 
 func startServer() {
-	// Start TCP server listening on specified port
-	//listener, err := net.Listen("tcp", ipAddr+":"+port)
-	listener, err := net.Listen("tcp", ":"+port)
+	// Start TCP server listening on specified address
+	listener, err := net.Listen("tcp", ipAddr+":"+port)
+
 	if err != nil {
+		log.Println("IP address or port invalid")
 		log.Fatal(err)
 	}
 	fmt.Println("Server listening on: ", listener.Addr().String())
 
 	defer listener.Close()
 
-	// Loop for accepting incoming connections
+	// Wait continously for incoming connections
 	for {
 		connection, err := listener.Accept()
 		if err != nil {
@@ -29,10 +27,11 @@ func startServer() {
 			continue
 		}
 		fmt.Println("New connection from: ", connection.RemoteAddr())
+
 		// Add connection to list of connections
 		connectionList[connection] = struct{}{}
 
-		// Launch go routine for handling the connection
+		// Start goroutine to handle the connection
 		go connectionHandler(connection)
 
 	}
@@ -47,10 +46,10 @@ func connectionHandler(connection net.Conn) {
 	scanner.Scan()
 	name := scanner.Text()
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "reading standard input:", err)
+		log.Fatal(err)
 	}
 
-	// Write to all other connections
+	// Send notification when the user joins the conversation
 	for c := range connectionList {
 		if c != connection {
 			fmt.Fprintln(c, name+" joined the conversation.")
@@ -59,87 +58,68 @@ func connectionHandler(connection net.Conn) {
 		}
 	}
 
-	// Loop to continuously read and write data to the client
+	// Continuously read data from the connection
 	for scanner.Scan() {
 		message := scanner.Text()
+		fmt.Println(message)
+
+		// Check if command for file transfer received
 		if len(message) > len("/send") && message[:len("/send")] == "/send" {
-			fmt.Println("/send command received...and transfering to all connections...")
+
+			// Forward the send command to the other connections
 			for c := range connectionList {
 				if c != connection {
 					fmt.Println("/send command transfering to:", c.RemoteAddr())
 					fmt.Fprintln(c, message)
+
 				}
 			}
-			forwardFile(connection)
 
-		} else {
+			fileSizeByte, fileData := readFile(connection)
+
+			// Forward the file data to the other connections
 			for c := range connectionList {
 				if c != connection {
+					fmt.Println("Write fileSizeByte...")
+					_, err := c.Write(fileSizeByte)
+					if err != nil {
+						log.Fatal(err)
+					}
+					fmt.Println("Write fileData...")
+					_, err = c.Write(fileData)
+					if err != nil {
+						log.Fatal(err)
+					}
 
+					fmt.Println("File sent to:", c.RemoteAddr())
+				}
+			}
+
+		} else {
+			// Forward message to the other connections
+			for c := range connectionList {
+				if c != connection {
 					fmt.Fprintln(c, name+": "+message)
 				}
 			}
-
 		}
 
 	}
+
 	if err := scanner.Err(); err != nil {
-		fmt.Println("reading standard input:", err)
+		log.Fatal(err)
+
 	} else {
-		// Write to all other connections
+		// Send notification to the other connections when leaving
 		for c := range connectionList {
 			if c != connection {
 				fmt.Fprintln(c, name+" left the conversation.")
 			}
 		}
-		// Log when client disconnects
+		// Log when user disconnects
 		log.Println("Client disconnected:", connection.RemoteAddr())
-	}
-}
 
-func forwardFile(connection net.Conn) {
-	buffer := make([]byte, 1024)
-	var fileData []byte
-	fileSizeByte := make([]byte, 8)
-
-	_, err := io.ReadFull(connection, fileSizeByte)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fileSizeUint64 := binary.LittleEndian.Uint64(fileSizeByte)
-
-	fmt.Println("Got file size! :", fileSizeUint64)
-	reader := io.LimitReader(connection, int64(fileSizeUint64))
-
-	for {
-		n, err := reader.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
-				log.Fatal(err)
-			} else {
-				fmt.Println("File reading complete!")
-				break
-			}
-		}
-		dataRead := buffer[:n]
-		fileData = append(fileData, dataRead...)
-	}
-
-	for c := range connectionList {
-		if c != connection {
-			fmt.Println("Write fileSizeByte...")
-			_, err = c.Write(fileSizeByte)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Println("Write fileData...")
-			_, err = c.Write(fileData)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println("File sent to:", c.RemoteAddr())
-		}
+		// Remove connection from connection list
+		delete(connectionList, connection)
 	}
 }
