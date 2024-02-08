@@ -61,7 +61,6 @@ func connectionHandler(connection net.Conn) {
 	// Continuously read data from the connection
 	for scanner.Scan() {
 		message := scanner.Text()
-		fmt.Println(message)
 
 		// Check if command for file transfer received
 		if len(message) > len("/send") && message[:len("/send")] == "/send" {
