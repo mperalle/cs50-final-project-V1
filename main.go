@@ -82,27 +82,21 @@ func readFile(c net.Conn) ([]byte, []byte) {
 	var fileData []byte
 	fileSizeByte := make([]byte, 8)
 
-	fmt.Println("Reading the next 8 bytes...")
-
 	// Read the next 8 bytes corresponding to the file size
 	_, err := io.ReadFull(c, fileSizeByte)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Next 8 bytes read...")
 
 	// Create a reader to read the exact file bytes
 	fileSizeUint64 := binary.LittleEndian.Uint64(fileSizeByte)
-	fmt.Println("Got file size! :", fileSizeUint64)
 	reader := io.LimitReader(c, int64(fileSizeUint64))
 
 	// Read incoming file data into fileData variable
-	fmt.Println("Reading incoming file...")
 	for {
 		n, err := reader.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("File reading complete!")
 				break
 			} else {
 				log.Fatal(err)

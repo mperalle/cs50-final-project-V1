@@ -54,7 +54,7 @@ func readConnection(connection net.Conn) {
 
 			// Fetch the file name
 			words := strings.Fields(message)
-			fmt.Println("/send command received for:", words[1])
+			fmt.Println("Incoming file transfer...")
 
 			// Read file from the server
 			_, fileData := readFile(connection)

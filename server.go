@@ -8,7 +8,7 @@ import (
 )
 
 func startServer() {
-	// Start TCP server listening on specified address
+	// Start TCP server listening for incoming connections on specified address
 	listener, err := net.Listen("tcp", ipAddr+":"+port)
 
 	if err != nil {
@@ -19,8 +19,8 @@ func startServer() {
 
 	defer listener.Close()
 
-	// Wait continously for incoming connections
 	for {
+		// Accept incoming connections
 		connection, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
@@ -28,10 +28,10 @@ func startServer() {
 		}
 		fmt.Println("New connection from: ", connection.RemoteAddr())
 
-		// Add connection to list of connections
+		// Add connection to the list of connections
 		connectionList[connection] = struct{}{}
 
-		// Start goroutine to handle the connection
+		// Start a goroutine to handle the connection
 		go connectionHandler(connection)
 
 	}
@@ -69,7 +69,6 @@ func connectionHandler(connection net.Conn) {
 			// Forward the send command to the other connections
 			for c := range connectionList {
 				if c != connection {
-					fmt.Println("/send command transfering to:", c.RemoteAddr())
 					fmt.Fprintln(c, message)
 
 				}
@@ -80,12 +79,10 @@ func connectionHandler(connection net.Conn) {
 			// Forward the file data to the other connections
 			for c := range connectionList {
 				if c != connection {
-					fmt.Println("Write fileSizeByte...")
 					_, err := c.Write(fileSizeByte)
 					if err != nil {
 						log.Fatal(err)
 					}
-					fmt.Println("Write fileData...")
 					_, err = c.Write(fileData)
 					if err != nil {
 						log.Fatal(err)
@@ -116,7 +113,7 @@ func connectionHandler(connection net.Conn) {
 				fmt.Fprintln(c, name+" left the conversation.")
 			}
 		}
-		// Log when user disconnects
+		// Log when client disconnects
 		log.Println("Client disconnected:", connection.RemoteAddr())
 
 		// Remove connection from connection list
