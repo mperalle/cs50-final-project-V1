@@ -6,6 +6,13 @@ EasyChatApp is a command-line application for instant messaging and file transfe
 
 EasyChatApp allows anyone to start a TCP server and have a chat room in the terminal accessible from the same local network. It allows also anyone in the conversation to send files to the whole chat room.
 
+## Video Demo
+
+URL: 
+[click here](https://youtu.be/zknoM-yo4yw)
+
+
+
 ## Getting Started
 
 ### Dependencies
